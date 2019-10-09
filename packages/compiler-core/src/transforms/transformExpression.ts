@@ -63,6 +63,7 @@ interface PrefixMeta {
   prefix?: string
   start: number
   end: number
+  scopeIds?: Set<string>
 }
 
 // Important: since this function uses Node.js only dependencies, it should
@@ -145,10 +146,7 @@ export function processExpression(
                 )
               ) {
                 const { name } = child
-                if (
-                  (node as any)._scopeIds &&
-                  (node as any)._scopeIds.has(name)
-                ) {
+                if (node.scopeIds && node.scopeIds.has(name)) {
                   return
                 }
                 if (name in knownIds) {
@@ -156,19 +154,16 @@ export function processExpression(
                 } else {
                   knownIds[name] = 1
                 }
-                ;(
-                  (node as any)._scopeIds ||
-                  ((node as any)._scopeIds = new Set())
-                ).add(name)
+                ;(node.scopeIds || (node.scopeIds = new Set())).add(name)
               }
             }
           })
         )
       }
     },
-    leave(node: any) {
-      if (node !== ast.body[0].expression && node._scopeIds) {
-        node._scopeIds.forEach((id: string) => {
+    leave(node: Node & PrefixMeta) {
+      if (node !== ast.body[0].expression && node.scopeIds) {
+        node.scopeIds.forEach((id: string) => {
           knownIds[id]--
           if (knownIds[id] === 0) {
             delete knownIds[id]
@@ -188,7 +183,7 @@ export function processExpression(
     // range is offset by -1 due to the wrapping parens when parsed
     const start = id.start - 1
     const end = id.end - 1
-    const last = ids[i - 1] as any
+    const last = ids[i - 1]
     const leadingText = rawExp.slice(last ? last.end - 1 : 0, start)
     if (leadingText.length || id.prefix) {
       children.push(leadingText + (id.prefix || ``))
